@@ -1,0 +1,9 @@
+[package]
+name = "generate-lance-bindings"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bindgen = "=0.72.1"
+csbindgen = "=1.9.6"

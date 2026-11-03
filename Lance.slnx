@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/Lance.Read/Lance.Read.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Lance/Lance.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lance.Tests/Lance.Tests.csproj" />
+  </Folder>
+</Solution>
