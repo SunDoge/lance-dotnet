@@ -41,5 +41,20 @@ public class S3Tests
         Assert.NotNull(batch);
         Assert.Equal("tiger", ((StringArray)batch.Column(1)).GetString(0));
         Assert.Equal("s3://raw/猫.jpg", ((StringArray)batch.Column(2)).GetString(0));
+        var count = 0;
+        await foreach (var asyncBatch in latest.ScanAsync(new LanceScanOptions
+        {
+            Columns = ["sample_id", "annotation", "payload_uri"],
+            Filter = "sample_id = 1", BatchSize = 1,
+        }))
+        {
+            using (asyncBatch)
+            {
+                count += asyncBatch.Length;
+                Assert.Equal("tiger", ((StringArray)asyncBatch.Column(1)).GetString(0));
+                Assert.Equal("s3://raw/猫.jpg", ((StringArray)asyncBatch.Column(2)).GetString(0));
+            }
+        }
+        Assert.Equal(1, count);
     }
 }

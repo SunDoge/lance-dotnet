@@ -12,13 +12,13 @@ var root = release.RootElement;
 var uri = root.GetProperty("dataset_uri").GetString()!;
 var version = root.GetProperty("version").GetUInt64();
 using var dataset = LanceDataset.Open(uri, version: version);
-using var reader = dataset.Scan(new LanceScanOptions
+var scan = dataset.ScanAsync(new LanceScanOptions
 {
     Filter = root.GetProperty("filter").GetString(),
     BatchSize = 1024,
 });
 long total = 0;
-while (await reader.ReadNextRecordBatchAsync() is { } batch)
+await foreach (var batch in scan)
 {
     using (batch)
     {

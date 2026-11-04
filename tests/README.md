@@ -20,3 +20,7 @@ The generator never overwrites existing data. Inspect the new fixtures before
 replacing checked-in ones. S3 tests are skipped by the ordinary test run; run
 `uv run --group s3 tools/test_s3.py` to start an isolated
 local Moto server and exercise Python writes and C# reads over S3.
+
+`AsyncScanTests` exercises native poll/waker iteration, repeated and concurrent
+enumerations, cancellation, early disposal, historical snapshots and deferred
+errors. The optional S3 test exercises both synchronous and asynchronous reads.

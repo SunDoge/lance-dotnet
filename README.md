@@ -39,13 +39,13 @@ using SunDoge.Lance;
 using var dataset = LanceDataset.Open("/data/images.lance", version: 12);
 Console.WriteLine($"Version {dataset.Version}, {dataset.CountRows()} samples");
 
-using var reader = dataset.Scan(new LanceScanOptions
+var scan = dataset.ScanAsync(new LanceScanOptions
 {
     Columns = ["sample_id", "payload_uri", "annotation"],
     Filter = "split = 'train'",
     BatchSize = 1024,
 });
-while (await reader.ReadNextRecordBatchAsync() is { } batch)
+await foreach (var batch in scan)
 {
     using (batch)
     {
@@ -54,12 +54,26 @@ while (await reader.ReadNextRecordBatchAsync() is { } batch)
 }
 ```
 
-Dispose readers and each returned batch. Streams own their snapshots and remain valid
-after the dataset or session is disposed. Batches remain valid after their reader closes.
-Dataset handles do not automatically refresh: `OpenVersion(0)` opens the latest snapshot.
-Native calls are blocking, including the Arrow reader's `ReadNextRecordBatchAsync`;
-cancellation is checked before each read and does not interrupt native I/O. Do not read
-one Arrow stream concurrently from multiple threads.
+Dispose each returned batch. `await foreach` closes the native scanner on completion,
+early exit, or an exception. Pass `cancellationToken` to `ScanAsync`, or use
+`WithCancellation(token)`, to cancel a pending read. Each enumeration opens an
+independent scanner; keep the dataset alive until enumeration starts. Active
+scanners own their snapshots, and returned batches remain valid after the scanner,
+dataset or session is disposed. Dataset handles do not automatically refresh:
+`OpenVersion(0)` opens the latest snapshot.
+
+`ScanAsync` uses `lance_scanner_poll_next` and native wake notifications: pending
+batch reads suspend without occupying a .NET worker thread. In lance-c v0.1.9,
+the first poll still performs blocking query preparation, so the adapter runs
+that one call on a worker thread. Cancellation during that preparation is observed
+when it returns; it does not interrupt native setup I/O. Later cancellation closes
+the scanner and retires its pending wake callbacks before releasing managed state.
+
+`Open`, metadata operations, `Take`, `TakeRows`, and the existing `Scan` API are
+blocking. In particular, the Arrow reader returned by `Scan` has a
+`ReadNextRecordBatchAsync` method whose native reads still block. Use `ScanAsync`
+for asynchronous batch iteration. Do not concurrently advance or dispose a single
+async enumerator or read one synchronous Arrow stream from multiple threads.
 
 `Take` reads logical row offsets; `TakeRows` reads `_rowid` values from the same snapshot.
 These are different identifiers. Use a persistent application `sample_id` for sample identity.
@@ -129,7 +143,8 @@ remain the caller's responsibility.
 The checked-in fixtures were created with pylance 7.0.0 and pyarrow 22.0.0, using
 Lance data format 2.0. Tests cover historical annotations, binary payloads and
 nested annotation fields, projection/filtering, row offsets/IDs, fragment scopes,
-vector/full-text reads, resource lifetime, and all generated native symbols.
+vector/full-text reads, resource lifetime, async iteration/cancellation, and all
+generated native symbols.
 In this tested writer/format combination a NULL parent struct is read back as a
 non-NULL struct with default-valued children even in Python. Use a non-NULL
 annotation struct with nullable children, or validate a newer format before using

@@ -141,29 +141,9 @@ public sealed unsafe class LanceDataset : IDisposable
     /// <remarks>Native calls, including batch reads, block. Cancellation is observed between reads, not during native I/O.</remarks>
     public IArrowArrayStream Scan(LanceScanOptions? options = null)
     {
-        options ??= new LanceScanOptions();
-        ValidateScanOptions(options);
-        using var lease = _handle.Acquire();
-        using var columns = new Utf8Array(options.Columns);
-        using var filter = new Utf8(options.Filter);
-        using var scanner = new NativeHandle(NativeMethods.lance_scanner_new((NativeDataset*)lease.Pointer, columns.Pointer, filter.Pointer), HandleKind.Scanner);
+        using var scanner = CreateScanner(options);
         using var scanLease = scanner.Acquire();
         var pointer = (NativeScanner*)scanLease.Pointer;
-        if (options.Limit is { } limit) LanceException.Check(NativeMethods.lance_scanner_set_limit(pointer, limit));
-        LanceException.Check(NativeMethods.lance_scanner_set_offset(pointer, options.Offset));
-        LanceException.Check(NativeMethods.lance_scanner_set_batch_size(pointer, options.BatchSize));
-        LanceException.Check(NativeMethods.lance_scanner_with_row_id(pointer, options.WithRowId));
-        if (options.FragmentIds is { } ids)
-        {
-            var values = ids.ToArray();
-            fixed (ulong* buffer = values) LanceException.Check(NativeMethods.lance_scanner_set_fragment_ids(pointer, buffer, (nuint)values.Length));
-        }
-        if (options.Nearest is { } nearest) ConfigureNearest(pointer, nearest);
-        if (options.FullTextQuery is { } query)
-        {
-            using var text = new Utf8(query);
-            LanceException.Check(NativeMethods.lance_scanner_full_text_search(pointer, text.Pointer, null, 0));
-        }
         ArrowArrayStream stream = default;
         try
         {
@@ -171,6 +151,57 @@ public sealed unsafe class LanceDataset : IDisposable
             return CArrowArrayStreamImporter.ImportArrayStream((CArrowArrayStream*)&stream);
         }
         finally { if (stream.release != null) stream.release(&stream); }
+    }
+
+    /// <summary>Read batches using native polling and wake notifications.</summary>
+    /// <remarks>
+    /// The sequence opens a scanner when enumeration starts; keep the dataset alive until
+    /// then. Each batch belongs to the caller and must be disposed. Breaking enumeration
+    /// or cancelling disposes the scanner. In lance-c v0.1.9 initial query preparation is
+    /// blocking and runs once on a worker thread; cancellation is observed when it returns.
+    /// Later pending reads suspend without occupying a .NET worker thread.
+    /// </remarks>
+    public IAsyncEnumerable<RecordBatch> ScanAsync(LanceScanOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        options ??= new LanceScanOptions();
+        ValidateScanOptions(options);
+        return LanceAsyncScan.Read(this, options, cancellationToken);
+    }
+
+    internal NativeHandle CreateScanner(LanceScanOptions? options)
+    {
+        options ??= new LanceScanOptions();
+        ValidateScanOptions(options);
+        using var lease = _handle.Acquire();
+        using var columns = new Utf8Array(options.Columns);
+        using var filter = new Utf8(options.Filter);
+        var scanner = new NativeHandle(NativeMethods.lance_scanner_new((NativeDataset*)lease.Pointer, columns.Pointer, filter.Pointer), HandleKind.Scanner);
+        try
+        {
+            using var scanLease = scanner.Acquire();
+            var pointer = (NativeScanner*)scanLease.Pointer;
+            if (options.Limit is { } limit) LanceException.Check(NativeMethods.lance_scanner_set_limit(pointer, limit));
+            LanceException.Check(NativeMethods.lance_scanner_set_offset(pointer, options.Offset));
+            LanceException.Check(NativeMethods.lance_scanner_set_batch_size(pointer, options.BatchSize));
+            LanceException.Check(NativeMethods.lance_scanner_with_row_id(pointer, options.WithRowId));
+            if (options.FragmentIds is { } ids)
+            {
+                var values = ids.ToArray();
+                fixed (ulong* buffer = values) LanceException.Check(NativeMethods.lance_scanner_set_fragment_ids(pointer, buffer, (nuint)values.Length));
+            }
+            if (options.Nearest is { } nearest) ConfigureNearest(pointer, nearest);
+            if (options.FullTextQuery is { } query)
+            {
+                using var text = new Utf8(query);
+                LanceException.Check(NativeMethods.lance_scanner_full_text_search(pointer, text.Pointer, null, 0));
+            }
+            return scanner;
+        }
+        catch
+        {
+            scanner.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Read zero-based logical row offsets in this snapshot.</summary>
