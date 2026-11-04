@@ -3,6 +3,7 @@ name = "generate-lance-bindings"
 version = "0.1.0"
 edition = "2021"
 publish = false
+license = "Apache-2.0"
 
 [dependencies]
 bindgen = "=0.72.1"

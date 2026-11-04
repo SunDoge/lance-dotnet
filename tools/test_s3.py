@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write and read a Python-created dataset through a local Moto S3 endpoint.
 
-Install tests/requirements-s3.txt in a Python environment before running.
+Run with uv run --group s3 tools/test_s3.py.
 This checks S3 transport and storage options, not a provider's concurrency guarantees.
 """
 import os
@@ -11,10 +11,9 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.error
-import urllib.request
 
 import boto3
+import httpx2
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,9 +31,9 @@ def main() -> int:
                 if process.poll() is not None:
                     raise RuntimeError("S3 test server exited during startup")
                 try:
-                    with urllib.request.urlopen(endpoint, timeout=1):
-                        break
-                except (urllib.error.URLError, TimeoutError):
+                    httpx2.get(endpoint, timeout=1).raise_for_status()
+                    break
+                except httpx2.HTTPError:
                     if time.monotonic() >= deadline:
                         raise RuntimeError("S3 test server did not become ready")
                     time.sleep(0.1)

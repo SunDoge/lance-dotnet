@@ -1,2 +1,0 @@
-pylance==7.0.0
-pyarrow==22.0.0

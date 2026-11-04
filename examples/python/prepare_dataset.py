@@ -1,10 +1,11 @@
-"""Create reproducible training snapshots. pip install -r requirements.txt"""
-import argparse
+"""Create reproducible training snapshots. Run with uv run."""
 import json
 from pathlib import Path
+from typing import Annotated
 
 import lance
 import pyarrow as pa
+import typed_args as ta
 
 
 def prepare(uri: str, storage_options: dict[str, str] | None = None) -> dict:
@@ -41,13 +42,16 @@ def prepare(uri: str, storage_options: dict[str, str] | None = None) -> dict:
     }
 
 
+class Args(ta.TypedArgs):
+    model_config = ta.ParserConfig(description=__doc__)
+    uri: str
+    manifest: Annotated[Path, ta.Arg("--manifest")] = Path("release.json")
+    storage_options: Annotated[Path | None, ta.Arg("--storage-options", help="JSON endpoint/region options; prefer environment credentials")] = None
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("uri")
-    parser.add_argument("--manifest", default="release.json")
-    parser.add_argument("--storage-options", help="Path to a JSON dictionary of endpoint/region options; prefer environment credentials")
-    args = parser.parse_args()
-    options = json.loads(Path(args.storage_options).read_text()) if args.storage_options else None
+    args = Args.parse_args()
+    options = json.loads(args.storage_options.read_text()) if args.storage_options else None
     release = prepare(args.uri, options)
-    Path(args.manifest).write_text(json.dumps(release, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.manifest.write_text(json.dumps(release, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Created release version {release['version']} ({release['tag']})")

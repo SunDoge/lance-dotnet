@@ -14,10 +14,14 @@ there are no network downloads at application startup.
 ## Build
 
 ```sh
-python3 tools/fetch_native.py --rid linux-x64
+uv run tools/fetch_native.py --rid linux-x64
 dotnet test Lance.slnx
 dotnet pack src/Lance/Lance.csproj -c Release -o artifacts
 ```
+
+Python tooling uses Python 3.14 and uv. `uv run` manages the environment using
+`pyproject.toml` and `uv.lock`; downloads use httpx2 and CLI arguments use typed-args.
+S3-only dependencies are installed with `--group s3`.
 
 Fetch every required RID before packing. Upstream v0.1.9 supplies Linux x64/arm64 and macOS
 arm64; it does not supply Windows binaries. Linux uses the Debian 12 (glibc 2.36+) assets.
@@ -91,7 +95,8 @@ foreach (var entry in dataset.GetVersions())
 See `examples/python/prepare_dataset.py` for append, annotation updates, tagging and a release
 manifest containing the numeric version to pass to C#. Use a Python Lance version compatible
 with the native reader and validate that version combination before upgrading. The supplied
-native reader is tested against Python pylance 7.0.0 fixtures written with data format 2.0.
+native reader is tested against the checked-in pylance 7.0.0 fixtures and fresh
+pylance 14.0.2 writes, using data format 2.0.
 
 Versions are snapshots of the entire dataset, not a per-row `version` column. Tag important
 training snapshots in Python **before** allowing cleanup. A row in an external SQL table or
@@ -133,8 +138,7 @@ NULL parent structs. The C# wrapper does not rewrite values returned by Lance.
 An optional local S3 integration test uses Moto (no real credentials or bucket):
 
 ```sh
-python3 -m pip install -r examples/python/requirements.txt -r tests/requirements-s3.txt
-python3 tools/test_s3.py
+uv run --group s3 tools/test_s3.py
 ```
 
 It creates and tags the dataset through Python on the S3 endpoint, then reads its
@@ -146,3 +150,9 @@ Run the end-to-end C# reader example:
 ```sh
 dotnet run --project examples/Lance.Read -- --manifest tests/Lance.Tests/TestData/release.json
 ```
+
+## License
+
+Copyright 2026 SunDoge. Licensed under [Apache-2.0](LICENSE).
+Vendored lance-c headers and native libraries retain their upstream copyright
+and [license](native/LICENSE).

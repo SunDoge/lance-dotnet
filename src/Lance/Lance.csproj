@@ -9,6 +9,7 @@
     <RootNamespace>SunDoge.Lance</RootNamespace>
     <Version>0.1.0-preview.1</Version>
     <Authors>SunDoge</Authors>
+    <Copyright>Copyright 2026 SunDoge</Copyright>
     <Description>C# bindings for the Lance dataset engine via lance-c, with Apache Arrow streaming and object storage support.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -16,6 +17,7 @@
   <ItemGroup>
     <PackageReference Include="Apache.Arrow" Version="22.1.0" />
     <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="/" />
     <None Include="../../native/LICENSE" Pack="true" PackagePath="licenses/lance-c/" />
     <None Remove="runtimes/**/*" />
     <None Include="runtimes/**/*" Pack="true" PackagePath="%(Identity)" CopyToOutputDirectory="PreserveNewest" />
@@ -24,6 +26,6 @@
     <ItemGroup>
       <_NativeLibraries Include="runtimes/**/*.so;runtimes/**/*.dylib;runtimes/**/*.dll" />
     </ItemGroup>
-    <Error Condition="'@(_NativeLibraries)' == ''" Text="No native libraries found. Run python3 tools/fetch_native.py --rid &lt;rid&gt; before packing, or explicitly set AllowMissingNativeAssets=true for a managed-only package." />
+    <Error Condition="'@(_NativeLibraries)' == ''" Text="No native libraries found. Run uv run tools/fetch_native.py --rid &lt;rid&gt; before packing, or explicitly set AllowMissingNativeAssets=true for a managed-only package." />
   </Target>
 </Project>

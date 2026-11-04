@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Regenerate fixtures into a new directory; requires examples/python/requirements.txt."""
-import argparse
+"""Regenerate fixtures into a new directory; run with uv run."""
 import json
 from pathlib import Path
 import sys
 
 import lance
 import pyarrow as pa
+import typed_args as ta
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "examples/python"))
@@ -37,7 +37,10 @@ def main(output: Path) -> None:
     lance.write_dataset(rich_table(), str(output / "rich.lance"), data_storage_version="2.0")
 
 
+class Args(ta.TypedArgs):
+    model_config = ta.ParserConfig(description=__doc__)
+    output: Path
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    main(parser.parse_args().output)
+    main(Args.parse_args().output)
