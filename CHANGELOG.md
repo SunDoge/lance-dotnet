@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-preview.3](https://github.com/SunDoge/lance-dotnet/compare/v0.1.0-preview.2...v0.1.0-preview.3) (2026-11-05)
+
+
+### Bug Fixes
+
+* **ci:** configure NuGet publisher account and retry workflow updates ([54a76d8](https://github.com/SunDoge/lance-dotnet/commit/54a76d802917bfc3e2ce92a51af5843a122f16c6))
+
 ## [0.1.0-preview.2](https://github.com/SunDoge/lance-dotnet/compare/v0.1.0-preview.1...v0.1.0-preview.2) (2026-11-05)
 
 

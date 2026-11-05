@@ -7,7 +7,7 @@
     <PackageId>SunDoge.Lance</PackageId>
     <AssemblyName>SunDoge.Lance</AssemblyName>
     <RootNamespace>SunDoge.Lance</RootNamespace>
-    <Version>0.1.0-preview.2</Version>
+    <Version>0.1.0-preview.3</Version>
     <Authors>SunDoge</Authors>
     <Copyright>Copyright 2026 SunDoge</Copyright>
     <Description>C# bindings for the Lance dataset engine via lance-c, with Apache Arrow streaming and object storage support.</Description>
