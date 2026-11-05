@@ -48,12 +48,15 @@ events do not trigger separate workflows.
 Configure a NuGet Trusted Publishing policy for repository owner `SunDoge`,
 repository `lance-dotnet`, workflow file `publish.yml`, no environment, and
 package scope `SunDoge.Lance`. Permit creation of the first package as well as
-new versions. Set the repository variable `NUGET_USER` to the NuGet account
-username that owns the policy (not an email or a GitHub username).
+new versions. The NuGet account defaults to `SunDoge`, which owns this policy.
+Override it with the `NUGET_USER` repository variable or the `nuget-user` workflow
+input if policy ownership changes; use a NuGet account name, not an email.
 
 The publishing job uses `NuGet/login@v1` and OIDC; no long-lived NuGet API key is
 needed. It publishes Linux x64 native assets and requires the release tag,
 `version.txt` and NuGet package version to match.
+Changes to `publish.yml` on `main` retry the existing GitHub release recorded in
+`version.txt`, using the tag's source rather than unpublished changes on `main`.
 
 To retry an existing GitHub release, run **Publish NuGet** from the Actions UI,
 or dispatch it with the tag and, optionally, a NuGet username override:

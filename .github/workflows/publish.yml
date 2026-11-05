@@ -1,6 +1,9 @@
 name: Publish NuGet
 
 on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish.yml]
   workflow_call:
     inputs:
       tag:
@@ -8,7 +11,7 @@ on:
         required: true
         type: string
       nuget-user:
-        description: NuGet username; defaults to the NUGET_USER repository variable
+        description: NuGet username; defaults to NUGET_USER or SunDoge
         required: false
         type: string
   workflow_dispatch:
@@ -18,14 +21,14 @@ on:
         required: true
         type: string
       nuget-user:
-        description: NuGet username; defaults to the NUGET_USER repository variable
+        description: NuGet username; defaults to NUGET_USER or SunDoge
         required: false
         type: string
 
 permissions: {}
 
 concurrency:
-  group: nuget-${{ inputs.tag }}
+  group: nuget-publish
   cancel-in-progress: false
 
 jobs:
@@ -37,12 +40,22 @@ jobs:
       id-token: write
     env:
       RELEASE_TAG: ${{ inputs.tag }}
-      NUGET_USER: ${{ inputs.nuget-user || vars.NUGET_USER }}
+      NUGET_USER: ${{ inputs.nuget-user || vars.NUGET_USER || 'SunDoge' }}
     steps:
+      # Publishing workflow fixes retry the existing release recorded on main.
+      - name: Read current release metadata
+        if: inputs.tag == ''
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Validate publishing inputs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if [[ -z "$RELEASE_TAG" ]]; then
+            RELEASE_TAG="v$(cat version.txt)"
+          fi
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::tag must be a version tag such as v0.1.0-preview.1"
             exit 1
@@ -51,11 +64,13 @@ jobs:
             echo "::error::Set the NUGET_USER repository variable or supply the nuget-user input."
             exit 1
           fi
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq 'if .isDraft then error("Cannot publish a draft release") else true end'
 
-      - uses: actions/checkout@v7
+      - name: Checkout released source
+        uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: refs/tags/${{ env.RELEASE_TAG }}
           persist-credentials: false
 
       - uses: actions/setup-dotnet@v6
