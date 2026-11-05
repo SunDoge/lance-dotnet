@@ -22,7 +22,10 @@ public sealed unsafe class LanceDataset : IDisposable
     }
 
     /// <summary>Open a specific version, or the latest committed version when version is zero.</summary>
-    public static LanceDataset Open(string uri, IReadOnlyDictionary<string, string>? storageOptions = null, ulong version = 0)
+    public static LanceDataset Open(string uri, LanceStorageOptions? storageOptions = null, ulong version = 0) =>
+        OpenCore(uri, storageOptions?.ToNativeOptions(), version);
+
+    private static LanceDataset OpenCore(string uri, IReadOnlyDictionary<string, string>? storageOptions, ulong version)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(uri);
         using var path = new Utf8(uri);
@@ -34,7 +37,7 @@ public sealed unsafe class LanceDataset : IDisposable
     public LanceDataset OpenVersion(ulong version)
     {
         using var lease = _handle.Acquire();
-        return Open(Uri, _storageOptions, version);
+        return OpenCore(Uri, _storageOptions, version);
     }
 
     public ulong Version

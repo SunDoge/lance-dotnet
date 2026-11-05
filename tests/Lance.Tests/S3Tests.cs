@@ -18,16 +18,20 @@ public class S3Tests
     [S3Fact]
     public async Task PythonWrittenDatasetCanBeReadThroughS3CompatibleEndpoint()
     {
-        var storage = new Dictionary<string, string>
+        var storage = new S3StorageOptions
         {
-            ["aws_endpoint"] = Environment.GetEnvironmentVariable("LANCE_TEST_S3_ENDPOINT")!,
-            ["aws_region"] = "us-east-1",
-            ["aws_access_key_id"] = "testing",
-            ["aws_secret_access_key"] = "testingsecret",
-            ["aws_allow_http"] = "true",
-            ["aws_virtual_hosted_style_request"] = "false",
+            Endpoint = new Uri(Environment.GetEnvironmentVariable("LANCE_TEST_S3_ENDPOINT")!),
+            Region = "us-east-1",
+            AccessKeyId = "testing",
+            SecretAccessKey = "testingsecret",
+            AllowHttp = true,
+            UseVirtualHostedStyle = false,
         };
-        using var latest = Dataset.Open(Environment.GetEnvironmentVariable("LANCE_TEST_S3_URI")!, storage);
+        var uri = Environment.GetEnvironmentVariable("LANCE_TEST_S3_URI")!;
+        using var session = new SunDoge.Lance.LanceSession();
+        using var latest = session.Open(uri, storage);
+        using var standalone = Dataset.Open(uri, storage, version: 1);
+        Assert.Equal(2UL, standalone.CountRows());
         Assert.Equal(3UL, latest.CountRows());
         Assert.Equal(3UL, latest.Version);
         using var first = latest.OpenVersion(1);
@@ -56,5 +60,21 @@ public class S3Tests
             }
         }
         Assert.Equal(1, count);
+        var additional = new Dictionary<string, string>
+        {
+            ["aws_endpoint"] = Environment.GetEnvironmentVariable("LANCE_TEST_S3_ENDPOINT")!,
+            ["aws_region"] = "us-east-1",
+            ["aws_allow_http"] = "false",
+        };
+        using var snapshot = Dataset.Open(uri, new S3StorageOptions
+        {
+            AdditionalOptions = additional,
+            AllowHttp = true, // Typed settings override matching additional keys.
+            AccessKeyId = "testing", SecretAccessKey = "testingsecret",
+            UseVirtualHostedStyle = false,
+        });
+        additional["aws_endpoint"] = "http://127.0.0.1:1";
+        using var historical = snapshot.OpenVersion(1);
+        Assert.Equal(2UL, historical.CountRows());
     }
 }

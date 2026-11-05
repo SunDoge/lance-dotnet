@@ -82,18 +82,22 @@ For cache sharing, create a `LanceSession` and open multiple datasets through it
 ## S3-compatible storage
 
 ```csharp
-var storage = new Dictionary<string, string>
+var storage = new S3StorageOptions
 {
-    ["aws_region"] = "us-east-1",
-    ["aws_endpoint"] = "https://your-s3-endpoint",
-    ["aws_virtual_hosted_style_request"] = "false",
+    Region = "us-east-1",
+    Endpoint = new Uri("https://your-s3-endpoint"),
+    UseVirtualHostedStyle = false,
     // Supply AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and optionally
     // AWS_SESSION_TOKEN via the process environment or supported credential provider.
 };
 using var dataset = LanceDataset.Open("s3://bucket/datasets/images.lance", storage, version: 12);
 ```
 
-Storage options pass through unchanged. Only add `aws_allow_http=true` for an HTTP endpoint.
+Typed options are converted to native settings at the FFI boundary. Set `AllowHttp = true`
+for an HTTP endpoint. Unset properties preserve native defaults and credential providers.
+Use `AdditionalOptions` for provider-specific settings; typed properties take precedence
+over matching additional keys. Other storage backends can use `LanceStorageOptions`
+with `AdditionalOptions`. Open datasets retain a snapshot of their storage settings.
 Concurrent writers require atomic conditional PUT support in the storage provider; see
 [Lance object store configuration](https://lance.org/guide/object_store/). The C# wrapper
 does not provide distributed locking or a dataset catalog. Keep externally referenced

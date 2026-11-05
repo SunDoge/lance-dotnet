@@ -12,14 +12,15 @@ public sealed unsafe class LanceSession : IDisposable
     public LanceSession(ulong indexCacheSizeBytes = 256 * 1024 * 1024, ulong metadataCacheSizeBytes = 64 * 1024 * 1024) =>
         _handle = new NativeHandle(NativeMethods.lance_session_new(indexCacheSizeBytes, metadataCacheSizeBytes), HandleKind.Session);
 
-    public LanceDataset Open(string uri, IReadOnlyDictionary<string, string>? storageOptions = null, ulong version = 0)
+    public LanceDataset Open(string uri, LanceStorageOptions? storageOptions = null, ulong version = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(uri);
         using var lease = _handle.Acquire();
         using var path = new Utf8(uri);
-        using var options = Utf8Array.StorageOptions(storageOptions);
+        var nativeOptions = storageOptions?.ToNativeOptions();
+        using var options = Utf8Array.StorageOptions(nativeOptions);
         var pointer = NativeMethods.lance_dataset_open_with_session(path.Pointer, options.Pointer, version, (NativeSession*)lease.Pointer);
-        return new LanceDataset(pointer, uri, storageOptions);
+        return new LanceDataset(pointer, uri, nativeOptions);
     }
 
     public LanceSessionCacheStats GetCacheStatistics()
