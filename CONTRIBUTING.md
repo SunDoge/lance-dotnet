@@ -20,6 +20,7 @@ cog commit docs "clarify supported platforms"
 Use `feat` for new features, `fix` for bug fixes, and `build`, `chore`, `ci`,
 `docs`, `perf`, `refactor`, `revert`, `style` or `test` as appropriate.
 Run `cog check` to validate commit history.
+GitHub-generated merge commits are excluded from conventional-message checks.
 
 ## Releases
 
