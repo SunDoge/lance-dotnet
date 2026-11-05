@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0-preview.2](https://github.com/SunDoge/lance-dotnet/compare/v0.1.0-preview.1...v0.1.0-preview.2) (2026-11-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* **storage:** add typed S3 storage options
+
+### Features
+
+* **storage:** add typed S3 storage options ([614af1c](https://github.com/SunDoge/lance-dotnet/commit/614af1cd039b0751996f4c358ada9346a3de3b6f))
+
 ## 0.1.0-preview.1 (2026-11-04)
 
 
