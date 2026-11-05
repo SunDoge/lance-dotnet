@@ -1,0 +1,110 @@
+name: Publish NuGet
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: GitHub release tag to publish
+        required: true
+        type: string
+      nuget-user:
+        description: NuGet username; defaults to the NUGET_USER repository variable
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag, for example v0.1.0-preview.1
+        required: true
+        type: string
+      nuget-user:
+        description: NuGet username; defaults to the NUGET_USER repository variable
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: nuget-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      NUGET_USER: ${{ inputs.nuget-user || vars.NUGET_USER }}
+    steps:
+      - name: Validate publishing inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::tag must be a version tag such as v0.1.0-preview.1"
+            exit 1
+          fi
+          if [[ -z "$NUGET_USER" ]]; then
+            echo "::error::Set the NUGET_USER repository variable or supply the nuget-user input."
+            exit 1
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq 'if .isDraft then error("Cannot publish a draft release") else true end'
+
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: '3.14'
+          enable-cache: true
+
+      - name: Validate package version against release tag
+        run: |
+          uv run --locked python - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          project = ET.parse("src/Lance/Lance.csproj")
+          version = os.environ["RELEASE_TAG"][1:]
+          assert project.findtext(".//PackageId") == "SunDoge.Lance", "Unexpected package ID"
+          assert project.findtext(".//Version") == version, "Tag and csproj versions differ"
+          assert Path("version.txt").read_text().strip() == version, "Tag and version.txt differ"
+          PY
+
+      - name: Download Linux x64 native runtime
+        run: uv run --locked tools/fetch_native.py --rid linux-x64
+
+      - name: Test
+        run: dotnet test Lance.slnx --configuration Release
+
+      - name: Test Python and S3 interoperability
+        run: uv run --locked --group s3 tools/test_s3.py
+
+      - name: Pack
+        run: dotnet pack src/Lance/Lance.csproj --configuration Release --no-build --output artifacts
+
+      - name: NuGet login with Trusted Publishing
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ env.NUGET_USER }}
+
+      - name: Publish package
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          dotnet nuget push "artifacts/SunDoge.Lance.${version}.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+          echo "Published [SunDoge.Lance ${version}](https://www.nuget.org/packages/SunDoge.Lance/${version})" >> "$GITHUB_STEP_SUMMARY"
